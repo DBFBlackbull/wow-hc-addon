@@ -8,6 +8,7 @@
 - Fixed 1.14 right-click menu stop working / showing support menu after reporting a player
 - Fixed error when mousing over another player's dynamic mount buff
 - Changed the description for the slayer achievements
+- Added hidden achievement checkboxes to all clients. Disabled them and added hover text telling why the setting cannot be activated in the client
 
 ## Future versions:
 - Prevent/disable auto-run when you are on a flypath
