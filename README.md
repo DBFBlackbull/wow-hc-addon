@@ -9,6 +9,8 @@
 - Fixed error when mousing over another player's dynamic mount buff
 - Fixed green items of the Bear/Eagle/Tiger links not showing any stats across clients
 - Changed the description for the slayer achievements
+- Added achievement setting for Tidehunter slayer achievement
+- Sorted slayer achievements to be placed in the bottom of the settings list
 
 ## Future versions:
 - Prevent/disable auto-run when you are on a flypath
