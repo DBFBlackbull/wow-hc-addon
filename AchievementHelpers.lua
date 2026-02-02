@@ -1217,6 +1217,22 @@ local murlocNpcs = {
     [950]   = true, ["Swamp Talker"] = true,
 }
 
+local function getNpcID(unit)
+    if UnitGUID then
+        local guid = UnitGUID(unit) -- Only possible on 1.14
+        local _, _, _, _, _, npcID = strsplit("-", guid)
+        return tonumber(npcID)
+    end
+
+    if WHC.client.isSuperWow then
+        local _, guid = UnitExists(unit) -- Superwow guid
+        local npcIDHex = string.sub(guid, 9, 12)
+        return tonumber(npcIDHex, 16)
+    end
+
+    return 0
+end
+
 local onlyKillFrame = CreateFrame("Frame", "OnlyKillFrame", UIParent, RETAIL_BACKDROP)
 onlyKillFrame:SetWidth(500)
 onlyKillFrame:SetHeight(150)
@@ -1251,16 +1267,6 @@ local function updateOnlyKillFrame(achievement, unitName)
     onlyKillFrame.title:SetText(achievement.itemLink)
     onlyKillFrame.desc1:SetText(string.format("Killing [%s] will fail your achievement!", unitName))
     onlyKillFrame:Show()
-end
-
-local function getNpcID(unit)
-    if not UnitGUID then
-        return 0
-    end
-
-    local guid = UnitGUID(unit) -- Only possible on 1.14
-    local _, _, _, _, _, npcID = strsplit("-", guid)
-    return tonumber(npcID)
 end
 
 onlyKillFrame:SetScript("OnEvent", function()

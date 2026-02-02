@@ -36,6 +36,32 @@ local function createSettingsCheckBox(contentFrame, text)
     checkBoxTitle:SetJustifyH("LEFT")
     checkBoxTitle:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 
+    function checkBox:setEnabled(enabled, disabledReason) -- Lowercase to avoid overwriting Blizzard function added in Patch 5.0.4
+        local color = NORMAL_FONT_COLOR
+        if enabled == 1 then
+            self:Enable()
+        else
+            self:Disable()
+            color = GRAY_FONT_COLOR
+
+            local hoverFrame = CreateFrame("Frame", "HoverFrame", self)
+            hoverFrame:SetAllPoints(self)
+            hoverFrame:Show()
+            hoverFrame:EnableMouse(true)
+            hoverFrame:SetScript("OnEnter", function()
+                GameTooltip:SetOwner(hoverFrame, "ANCHOR_RIGHT")
+                GameTooltip:SetText(disabledReason, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, 1, true)
+                GameTooltip:Show()
+            end)
+
+            hoverFrame:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+        end
+
+        checkBoxTitle:SetTextColor(color.r, color.g, color.b)
+    end
+
     return checkBox
 end
 
@@ -58,9 +84,9 @@ local function createSettingsSubCheckBox(contentFrame, text)
     checkBoxTitle:SetJustifyH("LEFT")
     checkBoxTitle:SetTextColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 
-    function checkBox:setEnabled(checked) -- Lowercase to avoid overwriting Blizzard function added in Patch 5.0.4
+    function checkBox:setEnabled(enabled) -- Lowercase to avoid overwriting Blizzard function added in Patch 5.0.4
         local color = NORMAL_FONT_COLOR
-        if checked == 1 then
+        if enabled == 1 then
             self:Enable()
         else
             self:Disable()
@@ -151,6 +177,12 @@ function WHC.Tab_Settings(content)
     getNextOffsetY()
     createTitle(scrollContent, "Achievement Settings", 14)
 
+    WHC_SETTINGS.onlyKillDemonsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting demons", WHC.Achievements.DEMON_SLAYER.itemLink))
+    WHC_SETTINGS.onlyKillDemonsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.onlyKillDemons = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillDemonsCheckbox)
+        WHC.SetWarningOnlyKill()
+    end)
+
     WHC_SETTINGS.blockTaxiServiceCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block flying service", WHC.Achievements.GROUNDED.itemLink))
     WHC_SETTINGS.blockTaxiServiceCheckbox:SetScript("OnClick", function()
         WhcAchievementSettings.blockTaxiService = getCheckedValueAndPlaySound(WHC_SETTINGS.blockTaxiServiceCheckbox)
@@ -175,6 +207,12 @@ function WHC.Tab_Settings(content)
         WHC.SetBlockAuctionSell()
     end)
 
+    WHC_SETTINGS.onlyKillUndeadCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting undead", WHC.Achievements.LIGHTBRINGER.itemLink))
+    WHC_SETTINGS.onlyKillUndeadCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.onlyKillUndead = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillUndeadCheckbox)
+        WHC.SetWarningOnlyKill()
+    end)
+
     WHC_SETTINGS.blockInvitesCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block invites", WHC.Achievements.LONE_WOLF.itemLink))
     WHC_SETTINGS.blockInvitesCheckbox:SetScript("OnClick", function()
         WhcAchievementSettings.blockInvites = getCheckedValueAndPlaySound(WHC_SETTINGS.blockInvitesCheckbox)
@@ -187,27 +225,24 @@ function WHC.Tab_Settings(content)
         WHC.SetBlockTrainSkill()
     end)
 
-    -- Disable equipment achievements for 1.14 as UseContainerItem function is protected and cannot be overwritten
-    if RETAIL == 0 then
-        WHC_SETTINGS.blockMagicItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping magic items", WHC.Achievements.MISTER_WHITE.itemLink))
-        WHC_SETTINGS.blockMagicItemsCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockMagicItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockMagicItemsCheckbox)
-            WHC_SETTINGS.blockMagicItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockMagicItems)
-
-            if WhcAchievementSettings.blockMagicItems == 0 then
-                WhcAchievementSettings.blockMagicItemsTooltip = 0
-                WHC_SETTINGS.blockMagicItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockMagicItemsTooltip))
-            end
-
-            WHC.SetBlockEquipItems()
-        end)
-
-        WHC_SETTINGS.blockMagicItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockMagicItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping magic items", WHC.Achievements.MISTER_WHITE.itemLink))
+    WHC_SETTINGS.blockMagicItemsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockMagicItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockMagicItemsCheckbox)
         WHC_SETTINGS.blockMagicItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockMagicItems)
-        WHC_SETTINGS.blockMagicItemsTooltipCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockMagicItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockMagicItemsTooltipCheckbox)
-        end)
-    end
+
+        if WhcAchievementSettings.blockMagicItems == 0 then
+            WhcAchievementSettings.blockMagicItemsTooltip = 0
+            WHC_SETTINGS.blockMagicItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockMagicItemsTooltip))
+        end
+
+        WHC.SetBlockEquipItems()
+    end)
+
+    WHC_SETTINGS.blockMagicItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockMagicItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockMagicItems)
+    WHC_SETTINGS.blockMagicItemsTooltipCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockMagicItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockMagicItemsTooltipCheckbox)
+    end)
 
     WHC_SETTINGS.blockTradesCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block trades", WHC.Achievements.MY_PRECIOUS.itemLink))
     WHC_SETTINGS.blockTradesCheckbox:SetScript("OnClick", function()
@@ -215,54 +250,48 @@ function WHC.Tab_Settings(content)
         WHC.SetBlockTrades()
     end)
 
-    -- Disable equipment achievements for 1.14 as UseContainerItem function is protected and cannot be overwritten
-    if RETAIL == 0 then
-        WHC_SETTINGS.blockArmorItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping armor items", WHC.Achievements.ONLY_FAN.itemLink))
-        WHC_SETTINGS.blockArmorItemsCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockArmorItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockArmorItemsCheckbox)
-            WHC_SETTINGS.blockArmorItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockArmorItems)
-
-            if WhcAchievementSettings.blockArmorItems == 0 then
-                WhcAchievementSettings.blockArmorItemsTooltip = 0
-                WHC_SETTINGS.blockArmorItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockArmorItemsTooltip))
-            end
-
-            WHC.SetBlockEquipItems()
-        end)
-
-        WHC_SETTINGS.blockArmorItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockArmorItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping armor items", WHC.Achievements.ONLY_FAN.itemLink))
+    WHC_SETTINGS.blockArmorItemsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockArmorItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockArmorItemsCheckbox)
         WHC_SETTINGS.blockArmorItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockArmorItems)
-        WHC_SETTINGS.blockArmorItemsTooltipCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockArmorItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockArmorItemsTooltipCheckbox)
-        end)
-    end
+
+        if WhcAchievementSettings.blockArmorItems == 0 then
+            WhcAchievementSettings.blockArmorItemsTooltip = 0
+            WHC_SETTINGS.blockArmorItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockArmorItemsTooltip))
+        end
+
+        WHC.SetBlockEquipItems()
+    end)
+
+    WHC_SETTINGS.blockArmorItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockArmorItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockArmorItems)
+    WHC_SETTINGS.blockArmorItemsTooltipCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockArmorItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockArmorItemsTooltipCheckbox)
+    end)
 
     WHC_SETTINGS.blockRestedExpCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block rested exp", WHC.Achievements.RESTLESS.itemLink))
     WHC_SETTINGS.blockRestedExpCheckbox:SetScript("OnClick", function()
         WHC.SendToggleRestedXpCommand()
     end)
 
-    -- Disable equipment achievements for 1.14 as UseContainerItem function is protected and cannot be overwritten
-    if RETAIL == 0 then
-        WHC_SETTINGS.blockNonSelfMadeItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping items you did not craft", WHC.Achievements.SELF_MADE.itemLink))
-        WHC_SETTINGS.blockNonSelfMadeItemsCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockNonSelfMadeItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockNonSelfMadeItemsCheckbox)
-            WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockNonSelfMadeItems)
-
-            if WhcAchievementSettings.blockNonSelfMadeItems == 0 then
-                WhcAchievementSettings.blockNonSelfMadeItemsTooltip = 0
-                WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockNonSelfMadeItemsTooltip))
-            end
-
-            WHC.SetBlockEquipItems()
-        end)
-
-        WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockNonSelfMadeItemsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block equipping items you did not craft", WHC.Achievements.SELF_MADE.itemLink))
+    WHC_SETTINGS.blockNonSelfMadeItemsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockNonSelfMadeItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockNonSelfMadeItemsCheckbox)
         WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockNonSelfMadeItems)
-        WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.blockNonSelfMadeItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox)
-        end)
-    end
+
+        if WhcAchievementSettings.blockNonSelfMadeItems == 0 then
+            WhcAchievementSettings.blockNonSelfMadeItemsTooltip = 0
+            WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:SetChecked(WHC.CheckedValue(WhcAchievementSettings.blockNonSelfMadeItemsTooltip))
+        end
+
+        WHC.SetBlockEquipItems()
+    end)
+
+    WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox = createSettingsSubCheckBox(scrollContent, "Display tooltips on items you cannot equip")
+    WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:setEnabled(WhcAchievementSettings.blockNonSelfMadeItems)
+    WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.blockNonSelfMadeItemsTooltip = getCheckedValueAndPlaySound(WHC_SETTINGS.blockNonSelfMadeItemsTooltipCheckbox)
+    end)
 
     WHC_SETTINGS.blockProfessionsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block learning primary professions", WHC.Achievements.SOFT_HANDS.itemLink))
     WHC_SETTINGS.blockProfessionsCheckbox:SetScript("OnClick", function()
@@ -274,6 +303,18 @@ function WHC.Tab_Settings(content)
     WHC_SETTINGS.blockMailItemsCheckbox:SetScript("OnClick", function()
         WhcAchievementSettings.blockMailItems = getCheckedValueAndPlaySound(WHC_SETTINGS.blockMailItemsCheckbox)
         WHC.SetBlockMailItems()
+    end)
+
+    WHC_SETTINGS.onlyKillBoarsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting boars or quilboars", WHC.Achievements.THAT_WHICH_HAS_NO_LIFE.itemLink))
+    WHC_SETTINGS.onlyKillBoarsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.onlyKillBoars = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillBoarsCheckbox)
+        WHC.SetWarningOnlyKill()
+    end)
+
+    WHC_SETTINGS.onlyKillMurlocsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting murlocs", WHC.Achievements.TIDEHUNTER.itemLink))
+    WHC_SETTINGS.onlyKillMurlocsCheckbox:SetScript("OnClick", function()
+        WhcAchievementSettings.onlyKillMurlocs = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillMurlocsCheckbox)
+        WHC.SetWarningOnlyKill()
     end)
 
     WHC_SETTINGS.blockAuctionBuyCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Block auction house buying", WHC.Achievements.TIME_IS_MONEY.itemLink))
@@ -288,36 +329,15 @@ function WHC.Tab_Settings(content)
         WHC.SetBlockTalents()
     end)
 
-    getNextOffsetY()
-    createTitle(scrollContent, "Slayer Achievements", 14)
-
-    WHC_SETTINGS.onlyKillDemonsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting demons", WHC.Achievements.DEMON_SLAYER.itemLink))
-    WHC_SETTINGS.onlyKillDemonsCheckbox:SetScript("OnClick", function()
-        WhcAchievementSettings.onlyKillDemons = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillDemonsCheckbox)
-        WHC.SetWarningOnlyKill()
-    end)
-
-    WHC_SETTINGS.onlyKillUndeadCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting undead", WHC.Achievements.LIGHTBRINGER.itemLink))
-    WHC_SETTINGS.onlyKillUndeadCheckbox:SetScript("OnClick", function()
-        WhcAchievementSettings.onlyKillUndead = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillUndeadCheckbox)
-        WHC.SetWarningOnlyKill()
-    end)
-
-    -- There are too many quilboars to translate for 1.12
-    if RETAIL == 1 or WHC.client.isEnglish then
-        WHC_SETTINGS.onlyKillBoarsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting boars or quilboars", WHC.Achievements.THAT_WHICH_HAS_NO_LIFE.itemLink))
-        WHC_SETTINGS.onlyKillBoarsCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.onlyKillBoars = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillBoarsCheckbox)
-            WHC.SetWarningOnlyKill()
-        end)
+    if WHC.client.is1_14 then
+        WHC_SETTINGS.blockMagicItemsCheckbox:setEnabled(0, "Disable for 1.14 because the UseContainerItem function (right-click in backpack) is protected and cannot be overwritten.")
+        WHC_SETTINGS.blockArmorItemsCheckbox:setEnabled(0, "Disable for 1.14 because the UseContainerItem function (right-click in backpack) is protected and cannot be overwritten.")
+        WHC_SETTINGS.blockNonSelfMadeItemsCheckbox:setEnabled(0, "Disable for 1.14 because the UseContainerItem function (right-click in backpack) is protected and cannot be overwritten.")
     end
 
-    if RETAIL == 1 or WHC.client.isEnglish then
-        WHC_SETTINGS.onlyKillMurlocsCheckbox = createSettingsCheckBox(scrollContent, string.format("%s Achievement: Warning when not targeting murlocs", WHC.Achievements.TIDEHUNTER.itemLink))
-        WHC_SETTINGS.onlyKillMurlocsCheckbox:SetScript("OnClick", function()
-            WhcAchievementSettings.onlyKillMurlocs = getCheckedValueAndPlaySound(WHC_SETTINGS.onlyKillMurlocsCheckbox)
-            WHC.SetWarningOnlyKill()
-        end)
+    if WHC.client.is1_12 and not WHC.client.isSuperWow and not WHC.client.isEnglish then
+        WHC_SETTINGS.onlyKillBoarsCheckbox:setEnabled(0, "The 1.12 client cannot get the NPC ID and can only use the english NPC name to validate if the mob can be killed.\n\nUse SuperWoW or an english client to activate this achievement.")
+        WHC_SETTINGS.onlyKillMurlocsCheckbox:setEnabled(0, "The 1.12 client cannot get the NPC ID and can only use the english NPC name to validate if the mob can be killed.\n\nUse SuperWoW or an english client to activate this achievement.")
     end
 
     return content;
