@@ -60,7 +60,9 @@ function WHC.InitializeMinimapIcon()
     end)
 
     minimapIcon:SetFrameLevel(9)
-    minimapIcon:SetFrameStrata('HIGH')
+    -- match the Minimap's strata so the icon is covered by bags/other frames that
+    -- open on top of the minimap, instead of floating above them at HIGH strata
+    minimapIcon:SetFrameStrata(Minimap:GetFrameStrata())
     minimapIcon:SetWidth(25)
     minimapIcon:SetHeight(25)
     minimapIcon:SetNormalTexture("Interface\\AddOns\\WOW_HC\\Images\\wow-hardcore-logo-round")
@@ -135,7 +137,9 @@ function WHC.InitializeGroupFinderIcon()
     end)
 
     icon:SetFrameLevel(9)
-    icon:SetFrameStrata('HIGH')
+    -- match the Minimap's strata so the icon is covered by bags/other frames that
+    -- open on top of the minimap, instead of floating above them at HIGH strata
+    icon:SetFrameStrata(Minimap:GetFrameStrata())
     icon:SetWidth(25)
     icon:SetHeight(25)
     local EYE_PATH = "Interface\\AddOns\\WOW_HC\\Images\\groupfinder\\eye\\battlenetworking"
