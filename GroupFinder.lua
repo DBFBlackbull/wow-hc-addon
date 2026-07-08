@@ -259,7 +259,8 @@ GF.selected = {}               -- dungeon id -> true (your selection for Find Gr
 GF.roleSel = { TANK = false, HEALER = false, DPS = false }
 GF.lastListReq = -100
 GF.lastPost = -100
-local LIST_CD, POST_CD = 10, 10
+GF.lastRolePing = -100
+local LIST_CD, POST_CD, ROLEPING_CD = 10, 10, 10
 
 -- ============================================================================
 -- networking
@@ -464,11 +465,12 @@ local NUM_ROWS = 8          -- row pool size (max of the two)
 local DUNGEON_ROW_H = 18.375  -- 8 rows: trims the list height (~13px shorter than 20)
 local BROWSE_ROW_H = 57
 
-local function makeRoleIcon(parent, file, x)
+local function makeRoleIcon(parent, file, x, y, size)
     -- whole 64x64 icon is the clickable target
+    size = size or 51                     -- 64 - 20%
     local btn = CreateFrame("Button", nil, parent)
-    btn:SetWidth(51); btn:SetHeight(51)   -- 64 - 20%
-    btn:SetPoint("TOP", parent, "TOP", x, -65)
+    btn:SetWidth(size); btn:SetHeight(size)
+    btn:SetPoint("TOP", parent, "TOP", x, y or -65)
     btn:SetNormalTexture(ART .. file)
     local hl = btn:CreateTexture(nil, "HIGHLIGHT")
     hl:SetTexture(ART .. file)
@@ -828,6 +830,18 @@ function WHC.InitializeGroupFinder()
     refreshBtn:SetScript("OnClick", function() GF.RequestList(false, true) end)  -- respects the 10s cooldown; wipes for feedback
     GF.refreshBtn = refreshBtn
 
+    -- BROWSE view, leader only: re-fire the role-pick popup to every member (same
+    -- prompt they got when they joined). Tiny button just above the "Your role" header.
+    local rolePingBtn = CreateFrame("Button", "WhcGFRolePing", f, BTN2)
+    rolePingBtn:SetWidth(200); rolePingBtn:SetHeight(21)
+    rolePingBtn:SetPoint("BOTTOM", GF.roleHeader, "TOP", 0, -17)
+    rolePingBtn:SetText("Ask members to pick a role")
+    local rpText = rolePingBtn:GetFontString()
+    if rpText then rpText:SetFontObject(GameFontNormal) end
+    rolePingBtn:SetScript("OnClick", function() GF.OnRequestRoles() end)
+    rolePingBtn:Hide()
+    GF.rolePingBtn = rolePingBtn
+
     -- CREATE view buttons: Post + Back
     local postBtn = CreateFrame("Button", "WhcGFPost", f, BTN2)
     postBtn:SetWidth(115); postBtn:SetHeight(23)
@@ -1013,12 +1027,20 @@ function GF.UpdateHeaderArea()
         end
     end
     if GF.roleHeader then
-        if showRoles then
+        -- leaders (state 1) manage roles via the "Ask for roles" popup, so hide the
+        -- inline "Your role" label for them; members (state 2) keep it
+        local hideForLeader = listedBrowse and GF.mine.state == 1
+        if showRoles and not hideForLeader then
             GF.roleHeader:SetText(listedBrowse and "Your role (click to change)" or "Select your role(s)")
             GF.roleHeader:Show()
         else
             GF.roleHeader:Hide()
         end
+    end
+
+    -- "Ask for roles" is leader-only (state 1) while browsing your own listing
+    if GF.rolePingBtn then
+        if listedBrowse and GF.mine.state == 1 then GF.rolePingBtn:Show() else GF.rolePingBtn:Hide() end
     end
 
     -- intro texts only on the plain browse view with no active listing (hidden while
@@ -1528,6 +1550,21 @@ function GF.OnCreateButton()
     GF.SetView("create")
 end
 
+-- leader re-fires the role-pick popup to all members (server-side .whc gf requestroles)
+function GF.OnRequestRoles()
+    if GF.mine.state ~= 1 then return end            -- only the listing owner
+    local now = GetTime()
+    if (now - GF.lastRolePing) < ROLEPING_CD then
+        GF.ShowError(string.format("Please wait %d seconds.", math.ceil(ROLEPING_CD - (now - GF.lastRolePing))))
+        return
+    end
+    GF.lastRolePing = now
+    Send("requestroles")
+    -- prompt the leader too (the server sends the popup to the members; show it here
+    -- for the clicking leader so they re-pick as well)
+    GF.ShowRolePick(GF.mine.id, UnitName("player"), GF.mine.dungeons)
+end
+
 -- submit the create form
 function GF.PostListing()
     local now = GetTime()
@@ -1686,7 +1723,7 @@ end)
 -- ============================================================================
 function GF.BuildRolePick()
     local d = CreateFrame("Frame", "WhcGFRolePick", UIParent, RETAIL_BACKDROP)
-    d:SetWidth(340); d:SetHeight(170)
+    d:SetWidth(340); d:SetHeight(190)
     d:SetPoint("CENTER", UIParent, "CENTER", 0, 140)
     d:SetFrameStrata("FULLSCREEN_DIALOG")
     d:EnableMouse(true)
@@ -1697,13 +1734,13 @@ function GF.BuildRolePick()
     end
 
     local t = d:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    t:SetPoint("TOP", d, "TOP", 0, -16); t:SetWidth(300); t:SetJustifyH("CENTER")
+    t:SetPoint("TOP", d, "TOP", 0, -24); t:SetWidth(300); t:SetJustifyH("CENTER")
     GF.rolePickTitle = t
 
     GF.rolePickChecks = {}
-    GF.rolePickChecks.TANK   = makeRoleIcon(d, "tank2",   -90)
-    GF.rolePickChecks.HEALER = makeRoleIcon(d, "healer2",   0)
-    GF.rolePickChecks.DPS    = makeRoleIcon(d, "damage2",  90)
+    GF.rolePickChecks.TANK   = makeRoleIcon(d, "tank2",   -90, -62, 66)
+    GF.rolePickChecks.HEALER = makeRoleIcon(d, "healer2",   0, -62, 66)
+    GF.rolePickChecks.DPS    = makeRoleIcon(d, "damage2",  90, -62, 66)
     for _, k in ipairs({ "TANK", "HEALER", "DPS" }) do
         local cb = GF.rolePickChecks[k]
         cb:SetScript("OnClick", function() updateRoleHighlight(cb) end)
@@ -1711,9 +1748,9 @@ function GF.BuildRolePick()
     end
 
     local ok = CreateFrame("Button", nil, d, "UIPanelButtonTemplate")
-    ok:SetWidth(120); ok:SetHeight(22)
-    ok:SetPoint("BOTTOM", d, "BOTTOM", 0, 14)
-    ok:SetText("Confirm role")
+    ok:SetWidth(120); ok:SetHeight(30)   -- 22 + 4px padding top & bottom
+    ok:SetPoint("BOTTOM", d, "BOTTOM", 0, 20)
+    ok:SetText("Confirm Role")
     ok:SetScript("OnClick", function()
         local mask = 0
         if GF.rolePickChecks.TANK:GetChecked() then mask = mask + GF.ROLE.TANK end
@@ -1733,11 +1770,17 @@ end
 
 function GF.ShowRolePick(id, leader, dungeons)
     if not GF.rolePick then return end
-    GF.rolePickTitle:SetText(string.format("You joined %s's group.\nPick your role for %s:", leader, dungeonsSummary(dungeons)))
+    -- when the leader triggers "Ask for roles" the popup is shown to themselves too,
+    -- with their current role pre-checked
+    local isSelf = (leader == UnitName("player"))
+    local dung = "|cffffd100" .. dungeonsSummary(dungeons) .. "|r"   -- dungeon name in yellow
+    GF.rolePickTitle:SetText(string.format("Pick your role for %s:", dung))
     for _, k in ipairs({ "TANK", "HEALER", "DPS" }) do
-        GF.rolePickChecks[k]:SetChecked(false)
+        GF.rolePickChecks[k]:SetChecked(isSelf and GF.roleSel[k] or false)
         updateRoleHighlight(GF.rolePickChecks[k])
     end
+    -- ready-check ping: 1.12 wants the string name, 1.14 the numeric SoundKit id
+    if WHC.client and WHC.client.is1_12 then PlaySound("ReadyCheck") else PlaySound(8960) end
     GF.rolePick:Show()
 end
 
