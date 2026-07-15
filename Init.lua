@@ -179,19 +179,11 @@ WHC:SetScript("OnEvent", function(self, event, addonName)
         WHC.InitializeDeathPopupAppeal()
     end
 
-    local wasReturningPlayer = (WhcAddonSettings.splash == 1)
-
     if (WhcAddonSettings.splash == 0) then
         WhcAddonSettings.splash = 1
 
         WHC.UIShowTabContent(WHC.TAB.GENERAL)
     end
-
-    -- Existing players see the new Shop tab once on the first login after this update
-    if (WhcAddonSettings.shopIntro == nil and wasReturningPlayer) then
-        WHC.UIShowTabContent(WHC.TAB.SHOP)
-    end
-    WhcAddonSettings.shopIntro = 1
 
     WHC.SetBlockInvites()
     WHC.SetBlockTrades()
